@@ -1,0 +1,145 @@
+mkdir plantix-backend
+cd plantix-backend
+npm init -y
+npm install express mongoose multer bcryptjs jsonwebtoken cors dotenv
+mkdir src
+cd src
+mkdir controllers models routes middleware
+PORT=5000
+MONGO_URI=mongodb://localhost:27017/plantix
+JWT_SECRET=your_jwt_secret
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const dotenv = require('dotenv');
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+.then(() => console.log('MongoDB connected'))
+.catch(err => console.log(err));
+
+// Routes
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/plants', require('./routes/plantRoutes'));
+app.use('/api/diagnoses', require('./routes/diagnosisRoutes'));
+
+// Start server
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+const UserSchema = new mongoose.Schema({
+    username: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+});
+
+UserSchema.pre('save', async function(next) {
+    if (!this.isModified('password')) return next();
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+});
+
+UserSchema.methods.matchPassword = async function(password) {
+    return await bcrypt.compare(password, this.password);
+};
+
+module.exports = mongoose.model('User', UserSchema);
+const mongoose = require('mongoose');
+
+const PlantSchema = new mongoose.Schema({
+    commonName: { type: String, required: true },
+    scientificName: { type: String, required: true },
+    diseases: [String],
+});
+
+module.exports = mongoose.model('Plant', PlantSchema);
+const mongoose = require('mongoose');
+
+const DiagnosticSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    plantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Plant', required: true },
+    imageUrl: { type: String, required: true },
+    diagnosis: {
+        disease: String,
+        confidence: Number,
+    },
+    timestamp: { type: Date, default: Date.now },
+});
+
+module.exports = mongoose.model('Diagnostic', DiagnosticSchema);
+const express = require('express');
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+const router = express.Router();
+
+// Register
+router.post('/register', async (req, res) => {
+    const { username, email, password } = req.body;
+    try {
+        const user = new User({ username, email, password });
+        await user.save();
+        res.status(201).json({ message: 'User registered' });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Login
+router.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const user = await User.findOne({ username });
+        if (!user || !(await user.matchPassword(password))) {
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+module.exports = router;
+const express = require('express');
+const Plant = require('../models/Plant');
+const router = express.Router();
+
+// Get all plants
+router.get('/', async (req, res) => {
+    try {
+        const plants = await Plant.find();
+        res.json(plants);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Add new plant
+router.post('/', async (req, res) => {
+    const { commonName, scientificName, diseases } = req.body;
+    try {
+        const plant = new Plant({ commonName, scientificName, diseases });
+        await plant.save();
+        res.status(201).json(plant);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+module.exports = router;
