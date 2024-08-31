@@ -1,0 +1,85 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>Voice Command Example</title>
+</head>
+<body>
+
+    <h1>Voice Prompt and Response</h1>
+
+    <!-- Button to start voice recognition -->
+    <button onclick="startRecognition()">Start Voice Command</button>
+    <p id="transcript"></p>
+
+    <!-- Button to trigger speech response -->
+    <button onclick="provideResponse()">Speak Response</button>
+
+    <script>
+        // Initialize SpeechRecognition
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'hi-IN';  // Set language
+        
+        // Event handler for speech recognition result
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById('transcript').textContent = 'User said: ' + transcript;
+            console.log('User said:', transcript);
+            // Process the transcript and provide responses if needed
+        };
+        
+        // Error handling for speech recognition
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            // Consider providing a user-friendly message or retry logic
+        };
+        
+        // Function to start speech recognition
+        function startRecognition() {
+            recognition.start();
+        }
+    </script>
+
+    <script>
+        // Function to speak text using SpeechSynthesis
+        function speakText(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'hi-IN';  // Set language
+            speechSynthesis.speak(utterance);
+        }
+        
+        // Example function to provide a response
+        function provideResponse() {
+            speakText('नमस्ते, मैं आज आपकी सहायता कैसे करूं');
+        }
+    </script>
+
+    <!-- Example code to transcribe audio using Google Speech-to-Text API -->
+    <script>
+        async function transcribeAudio(audioBlob) {
+            const formData = new FormData();
+            formData.append('file', audioBlob);
+
+            // Make sure to replace 'YOUR_API_KEY' with your actual API key
+            const response = await fetch('https://speech.googleapis.com/v1/speech:recognize?key=18f895e83a-9ff5-4613-8012-be9fd9f688ef', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+                console.log('Transcription:', data.results[0].alternatives[0].transcript);
+            } else {
+                console.error('No transcription found');
+            }
+        }
+    </script>
+
+</body>
+</html>
